@@ -15,12 +15,45 @@ using namespace std;
 
 //-----------
 //should be signleton
-//sort of hacking
+//sort of hacking in building the workload hierarchy level map
+
+class Triangle;
+class Pixel;
+
 class GlobalResourceManger
 {
-    uint64_t getGlobalId() {
-        return 0;
-    }
+    public:
+        static GlobalResourceManger& get()
+        {
+            static GlobalResourceManger global_resource_manager_;
+            return global_resource_manager_;
+        }
+
+        uint64_t getGlobalId() {
+            return 0;
+        }
+        template <class T>
+        void addWorkloadType() {
+            workload_hierarchy_[typeid(T).name()] = workload_hierarchy_.size();
+        }
+
+        template <class T>
+        uint32_t getWorkloadLevel() {
+            return workload_hierarchy_[typeid(T).name()];
+        }
+    private:
+        map<string, uint32_t> workload_hierarchy_;
+    private:
+        GlobalResourceManger() {
+            printf ("GlobalResourceManger init:\n");
+            addWorkloadType<Triangle>();
+            addWorkloadType<Pixel>();
+        };
+        GlobalResourceManger(GlobalResourceManger const &);
+        void operator=(GlobalResourceManger const &);
+    public:
+        //GlobalResourceManger(GlobalResourceManger const &) = delete;
+        //void operator=(GlobalResourceManger const&) = delete;
 };
 
 //-----------
@@ -143,4 +176,13 @@ int main()
     wp = pix.get();
     printf ("typeid by object:%s\n", typeid(pix.get()).name());
     printf ("typeid by parent pointer:%s\n", typeid(*wp).name());
+
+    GlobalResourceManger *p_gmng = & GlobalResourceManger::get();
+    //p_gmng->addWorkloadType<Triangle>();
+
+    p_gmng = & GlobalResourceManger::get();
+    printf("Triangle level:%d\n", p_gmng->getWorkloadLevel<Triangle>());
+    printf("Pixel level:%d\n", p_gmng->getWorkloadLevel<Pixel>());
+
+
 }
