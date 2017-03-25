@@ -32,10 +32,6 @@ class GlobalResourceManger
         uint64_t getGlobalId() {
             return 0;
         }
-        template <class T>
-        void addWorkloadType() {
-            workload_hierarchy_[typeid(T).name()] = workload_hierarchy_.size();
-        }
 
         template <class T>
         uint32_t getWorkloadLevel() {
@@ -51,6 +47,10 @@ class GlobalResourceManger
         };
         GlobalResourceManger(GlobalResourceManger const &);
         void operator=(GlobalResourceManger const &);
+        template <class T>
+        void addWorkloadType() {
+            workload_hierarchy_[typeid(T).name()] = workload_hierarchy_.size();
+        }
     public:
         //GlobalResourceManger(GlobalResourceManger const &) = delete;
         //void operator=(GlobalResourceManger const&) = delete;
