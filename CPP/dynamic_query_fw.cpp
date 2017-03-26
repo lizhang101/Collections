@@ -94,47 +94,31 @@ class Workload: public SerializableInterface, RelationshipInterface
     //alive children should keep parents alive
     map<string, shared_ptr<Workload> > parent_wl_;
 
-    template<class T>
-    shared_ptr<T> getWorkload(){
-        if (parent_wl_.find(typeid(T).name()) == parent_wl_.end()){
+    shared_ptr<Workload> getWorkload(const string& cls_name){
+        //printf("%s name:%s\n", __FUNCTION__, cls_name.c_str());
+        if (parent_wl_.find(cls_name) == parent_wl_.end()){
             return nullptr;
         }
-        shared_ptr<T> t = static_pointer_cast<T> (parent_wl_[typeid(T).name()]);
-        return t;
+        return parent_wl_[cls_name];
     }
 
-    void addRelated(shared_ptr<Workload> &wl)
+    void addRelated(const string& cls_name, shared_ptr<Workload> wl)
     {
-        printf("%s name:%s\n", __FUNCTION__, typeid(wl.get()).name());
-        parent_wl_[typeid(wl.get()).name()] = wl;
+        //printf("%s name:%s\n", __FUNCTION__, cls_name.c_str());
+        parent_wl_ = wl->parent_wl_;
+        parent_wl_[cls_name] = dynamic_pointer_cast<Workload> (wl);
     }
 
-    template<class T>
-    void addRelated2(shared_ptr<Workload> &wl)
-    {
-        printf("%s name:%s\n", __FUNCTION__, typeid(wl.get()).name());
-        parent_wl_[typeid(T).name()] = wl;
-    }
     virtual void whoami(){
         printf ("I'm %s\n", typeid(this).name());
     }
-    template<class T>
-    shared_ptr<T> query2(){
-        printf (">>> %s\n", typeid(T).name());
-        if (parent_wl_.find(typeid(T).name()) == parent_wl_.end()){
-            return nullptr;
-        }
-        shared_ptr<T> t = static_pointer_cast<T> (parent_wl_[typeid(T).name()]);
-        return t;
-    }
-        
 };
 class Instruction : public Workload
 {
     public:
     shared_ptr<Workload> genWorkload() override
     {
-        printf ("Instruction Gen\n");
+        //printf ("Instruction Gen\n");
         Instruction *p = new Instruction;
         shared_ptr<Workload> wl(p);
         return wl;
@@ -149,7 +133,7 @@ class Pixel : public Workload
     public:
     shared_ptr<Workload> genWorkload() override
     {
-        printf ("Pixel Gen\n");
+        //printf ("Pixel Gen\n");
         Instruction *p = new Instruction;
         shared_ptr<Workload> wl(p);
         return wl;
@@ -164,7 +148,7 @@ class Triangle : public Workload
     public:
     shared_ptr<Workload> genWorkload() override 
     {
-        printf ("Triangle Gen\n");
+        //printf ("Triangle Gen\n");
         Workload *pix = new Pixel;
         shared_ptr<Workload> wl(pix);
         return wl;
@@ -179,48 +163,18 @@ class Triangle : public Workload
 class FuncLayer
 {
     public:
-    template <class T> 
-    shared_ptr<T> query(shared_ptr<Workload> &wl) {
-        shared_ptr<T> sub_wl = wl->getWorkload<T>();
-        if (sub_wl == nullptr) {
-            sub_wl = static_pointer_cast<T> (wl->genWorkload());
-            sub_wl->addRelated(wl);
-            shared_ptr<SerializableInterface> rsc = dynamic_pointer_cast<SerializableInterface>(sub_wl);
-            GlobalResourceManger::get().addResource(rsc);
-        }
-        return sub_wl;
-    }
-/*
     template <class T1, class T2> 
     shared_ptr<T1> query(shared_ptr<T2> &wl) {
-        shared_ptr<T1> sub_wl = wl->getWorkload<T1>();
+        //printf("%s %s\n", typeid(T1).name(), typeid(T2).name());
+        shared_ptr<T1> sub_wl = dynamic_pointer_cast<T1> (wl->getWorkload(typeid(T1).name()));
         if (sub_wl == nullptr) {
-            sub_wl = static_pointer_cast<T1> (wl->genWorkload());
-            sub_wl->addRelated(wl);
+            sub_wl = dynamic_pointer_cast<T1> (wl->genWorkload());
+            sub_wl->addRelated(typeid(T2).name(), wl);
             shared_ptr<SerializableInterface> rsc = dynamic_pointer_cast<SerializableInterface>(sub_wl);
             GlobalResourceManger::get().addResource(rsc);
         }
         return sub_wl;
     }
-*/
-    template <class T1, class T2> 
-    shared_ptr<T1> query2(shared_ptr<T2> &wl) {
-        printf("%s %s\n", typeid(T1).name(), typeid(T2).name());
-        shared_ptr<T1> sub_wl = wl->query2<T1>();
-        if (sub_wl == nullptr) {
-            sub_wl = static_pointer_cast<T1> (wl->genWorkload());
-            shared_ptr<Workload> wwl = wl;
-            //sub_wl->addRelated2<T2> (wwl);
-            shared_ptr<SerializableInterface> rsc = dynamic_pointer_cast<SerializableInterface>(sub_wl);
-            GlobalResourceManger::get().addResource(rsc);
-        }
-        return sub_wl;
-    }
-    //Next Gen:
-    /*
-    template <class RtnT, class SrcT>
-    shared_ptr<RtnT> query(SrcT &wl){} ; 
-    */
 };
 
 //------------------
@@ -229,33 +183,28 @@ int main()
 {
     Triangle tri;
     printf ("call with object:\n");
-    shared_ptr<Workload> sp_tri = make_shared<Triangle> (tri);
+    shared_ptr<Triangle> sp_tri = make_shared<Triangle> (tri);
     sp_tri->whoami();
-
+/*
     auto wl0 = sp_tri->genWorkload();
     wl0->whoami();
     auto wl1 = wl0->genWorkload();
     wl1->whoami();
-
+*/
     printf ("--------------\n");
     printf ("call with template:\n");
     FuncLayer fl;
-    shared_ptr<Workload> p_wl;
     sp_tri->whoami();
-    auto pix = fl.query<Pixel> (sp_tri);
+    shared_ptr<Pixel> pix = fl.query<Pixel, Triangle> (sp_tri);
     pix->whoami();
-    p_wl = pix;
-    auto ins = fl.query<Instruction>(p_wl);
+    shared_ptr<Instruction> ins = fl.query<Instruction, Pixel> (pix);
     ins->whoami();
 
-    p_wl = ins;
-    auto pix_0 = fl.query<Pixel>(p_wl);
-    pix_0->whoami();
-    
-    Triangle tri2;
-    shared_ptr<Triangle> tri_ptr = make_shared<Triangle> (tri2);
+    printf("get triangle from Instruction\n");
+    shared_ptr<Triangle> tri_0 = fl.query<Triangle, Instruction> (ins);
+    tri_0->whoami();
 
-    fl.query2<Pixel, Triangle>(tri_ptr);
+
 
 /*
     Workload *wp = &tri;
