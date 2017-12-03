@@ -1,2 +1,3 @@
 # Collections
-ML: Machine learning practices. 
+coding practice and useful code snippets.
+
